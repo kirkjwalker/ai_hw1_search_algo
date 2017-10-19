@@ -1,5 +1,6 @@
 from collections import deque
 import time
+from urllib3.util import wait
 
 class EightPuzzleResult:
     path_to_solution = []
@@ -21,20 +22,21 @@ class EightPuzzleResult:
     
 
     def get_path_to_solution(self,frontier_dict,board_state):
-        if(board_state != None and frontier_dict[board_state]["parent"] != None):
+        while(board_state != None and frontier_dict[board_state]["parent"] != None):
             self.path_to_solution.insert(0,frontier_dict[board_state]['direction'])
             self.cost_of_path += 1
             self.search_depth += 1
-            self.get_path_to_solution(frontier_dict,frontier_dict[board_state]["parent"])
-        else:
-            return self.path_to_solution
+            board_state = frontier_dict[board_state]["parent"]
+            print board_state
+            #self.get_path_to_solution(frontier_dict,frontier_dict[board_state]["parent"])
+        
+        return self.path_to_solution
 
     def calculate_max_search_depth(self,frontier_dict,board_state):
-        if(board_state != None and frontier_dict[board_state]["parent"] != None):
+        while(board_state != None and frontier_dict[board_state]["parent"] != None):
             self.max_search_depth += 1
-            self.calculate_max_search_depth(frontier_dict, frontier_dict[board_state]["parent"])
-        else:
-            return self.max_search_depth
+            board_state = frontier_dict[board_state]["parent"]
+        return self.max_search_depth
         
 #     def calculate_search_depth(self,frontier_dict):
 #         parent_and_direction_dict in frontier_dict:
@@ -64,8 +66,8 @@ class CalcBoardSolution:
         self.start_time = time.time()
         if (search_algorithm == "bfs"):
             self.use_search_algorithm_to = BFS()
-#         elif(search_algorithm == "dfs"):
-#             self.use_search_algorithm_to = DFS()
+        elif(search_algorithm == "dfs"):
+            self.use_search_algorithm_to = DFS()
         return self
 
     def and_the_board(self,tile_positions):
@@ -74,6 +76,7 @@ class CalcBoardSolution:
             eight_puzzle_result = self.use_search_algorithm_to.get_the_optimal_solution_with_board(tile_positions)
         if (eight_puzzle_result == None):
             print "No result was found"
+            return None
         eight_puzzle_result.running_time = time.time() - self.start_time
         eight_puzzle_result.print_result()
         return eight_puzzle_result
@@ -136,13 +139,23 @@ class TreeOperations:
 
 class SearchAlgorithm:
     goal_state = 1012345678
+    frontier = None
+    
+    def __init__(self):
+        self.frontier = deque()
+
     def goal_test(self,board_state):
         if board_state == self.goal_state:
             return True
+    
+    def get_the_next_board_state_from_the_frontier(self):
+        return None
 
-class BFS(SearchAlgorithm):    
+    def put_neighbor_into_frontier(self, neighbor):
+        return self.frontier.append(neighbor)
 
     def get_the_optimal_solution_with_board(self,initial_board_configuration):
+
         def convert_initial_board_configuration_to_a_unique_number():    
             result = pow(10,9)
             for index in range(9):
@@ -150,23 +163,22 @@ class BFS(SearchAlgorithm):
             return result
             
         def frontier_queue_is_not_empty():
-            return frontier_queue
+            return self.frontier
 
         order_of_search=("Up","Down","Left","Right")
         board_configuration_number = convert_initial_board_configuration_to_a_unique_number()
-        frontier_queue = deque()
-        frontier_queue.append(board_configuration_number)
+        self.put_neighbor_into_frontier(board_configuration_number)
         frontier_dict = {board_configuration_number:{'parent':None,'direction':None}}
         explored_set = set()
         eight_puzzle_result = EightPuzzleResult()
         tree_operations = TreeOperations() 
         while(frontier_queue_is_not_empty()):
-            board_state = frontier_queue.popleft()
+            board_state = self.get_the_next_board_state_from_the_frontier()
             explored_set.add(board_state)
 #             print board_state
             if(self.goal_test(board_state)):
                 eight_puzzle_result.get_path_to_solution(frontier_dict,board_state)
-                eight_puzzle_result.calculate_max_search_depth(frontier_dict,frontier_queue.pop())
+                eight_puzzle_result.calculate_max_search_depth(frontier_dict,self.frontier.pop())
                 return eight_puzzle_result
             eight_puzzle_result.nodes_expanded += 1
             neighbors = tree_operations.get_all_neighbors_for(board_state)
@@ -174,8 +186,18 @@ class BFS(SearchAlgorithm):
                 if direction in neighbors:
                     neighbor = neighbors[direction]
                     if neighbor not in frontier_dict and neighbor not in explored_set:
-                        frontier_queue.append(neighbor)
+                        self.put_neighbor_into_frontier(neighbor)
                         frontier_dict[neighbor]={'parent':board_state,'direction':direction}
         return None
-                
-            
+
+class BFS(SearchAlgorithm):    
+
+    def get_the_next_board_state_from_the_frontier(self):
+        return self.frontier.popleft()
+
+
+class DFS(SearchAlgorithm):    
+
+    def get_the_next_board_state_from_the_frontier(self):
+        return self.frontier.pop()
+
