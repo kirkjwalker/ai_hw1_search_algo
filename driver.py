@@ -27,7 +27,7 @@ class EightPuzzleResult:
             self.cost_of_path += 1
             self.search_depth += 1
             board_state = frontier_dict[board_state]["parent"]
-            print board_state
+
             #self.get_path_to_solution(frontier_dict,frontier_dict[board_state]["parent"])
         
         return self.path_to_solution
@@ -168,17 +168,21 @@ class SearchAlgorithm:
         order_of_search=("Up","Down","Left","Right")
         board_configuration_number = convert_initial_board_configuration_to_a_unique_number()
         self.put_neighbor_into_frontier(board_configuration_number)
-        frontier_dict = {board_configuration_number:{'parent':None,'direction':None}}
+        frontier_dict = {board_configuration_number:{'parent':None,'direction':None,'search_depth':0}}
         explored_set = set()
         eight_puzzle_result = EightPuzzleResult()
         tree_operations = TreeOperations() 
+        max_search_depth = 0
         while(frontier_queue_is_not_empty()):
             board_state = self.get_the_next_board_state_from_the_frontier()
             explored_set.add(board_state)
 #             print board_state
             if(self.goal_test(board_state)):
                 eight_puzzle_result.get_path_to_solution(frontier_dict,board_state)
-                eight_puzzle_result.calculate_max_search_depth(frontier_dict,self.frontier.pop())
+                if ():
+                    eight_puzzle_result.calculate_max_search_depth(frontier_dict,self.get_the_next_board_state_from_the_frontier())
+                else:
+                    eight_puzzle_result.calculate_max_search_depth(frontier_dict,board_state)
                 return eight_puzzle_result
             eight_puzzle_result.nodes_expanded += 1
             neighbors = tree_operations.get_all_neighbors_for(board_state)
@@ -187,7 +191,9 @@ class SearchAlgorithm:
                     neighbor = neighbors[direction]
                     if neighbor not in frontier_dict and neighbor not in explored_set:
                         self.put_neighbor_into_frontier(neighbor)
-                        frontier_dict[neighbor]={'parent':board_state,'direction':direction}
+                        frontier_dict[neighbor]={'parent':board_state,'direction':direction,'search_depth':frontier_dict[board_state]['search_depth'] + 1}
+                        if(frontier_dict[neighbor]['search_depth'] > max_search_depth):
+                            max_search_depth = frontier_dict[neighbor]['search_depth']
         return None
 
 class BFS(SearchAlgorithm):    
