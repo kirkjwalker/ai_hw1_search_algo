@@ -1,6 +1,6 @@
 from collections import deque
 import time
-from urllib3.util import wait
+from _heapq import heappush
 
 class EightPuzzleResult:
     path_to_solution = []
@@ -19,13 +19,10 @@ class EightPuzzleResult:
         self.running_time = 0
         self.max_ram_usage = 0
     
-    
-
     def get_path_to_solution(self,frontier_dict,board_state):
+        self.search_depth = self.cost_of_path = frontier_dict[board_state]['search_depth']
         while(board_state != None and frontier_dict[board_state]["parent"] != None):
             self.path_to_solution.insert(0,frontier_dict[board_state]['direction'])
-            self.cost_of_path += 1
-            self.search_depth += 1
             board_state = frontier_dict[board_state]["parent"]
 
             #self.get_path_to_solution(frontier_dict,frontier_dict[board_state]["parent"])
@@ -154,6 +151,7 @@ class SearchAlgorithm:
     def put_neighbor_into_frontier(self, neighbor):
         return self.frontier.append(neighbor)
 
+
     def get_the_optimal_solution_with_board(self,initial_board_configuration):
 
         def convert_initial_board_configuration_to_a_unique_number():    
@@ -165,7 +163,7 @@ class SearchAlgorithm:
         def frontier_queue_is_not_empty():
             return self.frontier
 
-        order_of_search=("Up","Down","Left","Right")
+        order_of_search=self.get_order_of_search()
         board_configuration_number = convert_initial_board_configuration_to_a_unique_number()
         self.put_neighbor_into_frontier(board_configuration_number)
         frontier_dict = {board_configuration_number:{'parent':None,'direction':None,'search_depth':0}}
@@ -178,11 +176,10 @@ class SearchAlgorithm:
             explored_set.add(board_state)
 #             print board_state
             if(self.goal_test(board_state)):
-                eight_puzzle_result.get_path_to_solution(frontier_dict,board_state)
-                if ():
-                    eight_puzzle_result.calculate_max_search_depth(frontier_dict,self.get_the_next_board_state_from_the_frontier())
-                else:
-                    eight_puzzle_result.calculate_max_search_depth(frontier_dict,board_state)
+                eight_puzzle_result.get_path_to_solution(frontier_dict,board_state)   
+                eight_puzzle_result.max_search_depth = max_search_depth
+
+                
                 return eight_puzzle_result
             eight_puzzle_result.nodes_expanded += 1
             neighbors = tree_operations.get_all_neighbors_for(board_state)
@@ -201,9 +198,26 @@ class BFS(SearchAlgorithm):
     def get_the_next_board_state_from_the_frontier(self):
         return self.frontier.popleft()
 
+    def get_order_of_search(self):
+        return "Up", "Down", "Left","Right"
+
 
 class DFS(SearchAlgorithm):    
 
     def get_the_next_board_state_from_the_frontier(self):
         return self.frontier.pop()
 
+    def get_order_of_search(self):
+        return "Right","Left","Down","Up"
+
+# class AStar(SearchAlgorithm):
+# 
+#     def __init__(self):
+#         self.frontier = []
+# 
+#     def get_the_next_board_state_from_the_frontier(self):
+#         return None
+# 
+#     def put_neighbor_into_frontier(self, neighbor):
+#         return heappush(self.frontier.append,(neighbor,0))
+#     
