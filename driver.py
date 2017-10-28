@@ -1,6 +1,6 @@
 from collections import deque
 import time
-from _heapq import heappush
+from _heapq import heappush, heappop
 
 class EightPuzzleResult:
     path_to_solution = []
@@ -65,6 +65,8 @@ class CalcBoardSolution:
             self.use_search_algorithm_to = BFS()
         elif(search_algorithm == "dfs"):
             self.use_search_algorithm_to = DFS()
+        elif(search_algorithm == "ast"):
+            self.use_search_algorithm_to = AST()
         return self
 
     def and_the_board(self,tile_positions):
@@ -137,6 +139,8 @@ class TreeOperations:
 class SearchAlgorithm:
     goal_state = 1012345678
     frontier = None
+    frontier_dict = None
+    max_search_depth = None
     
     def __init__(self):
         self.frontier = deque()
@@ -152,8 +156,15 @@ class SearchAlgorithm:
         return self.frontier.append(neighbor)
 
 
-    def get_the_optimal_solution_with_board(self,initial_board_configuration):
+    def determine_if_to_insert_neighbor_into_frontier(self, explored_set, board_state, direction, neighbor):
+        if neighbor not in self.frontier_dict and neighbor not in explored_set:
+            self.frontier_dict[neighbor] = {'parent':board_state, 'direction':direction, 'search_depth':self.frontier_dict[board_state]['search_depth'] + 1}
+            self.put_neighbor_into_frontier(neighbor)
+            if (self.frontier_dict[neighbor]['search_depth'] > self.max_search_depth):
+                self.max_search_depth = self.frontier_dict[neighbor]['search_depth']
 
+    def get_the_optimal_solution_with_board(self,initial_board_configuration):
+            
         def convert_initial_board_configuration_to_a_unique_number():    
             result = pow(10,9)
             for index in range(9):
@@ -165,19 +176,19 @@ class SearchAlgorithm:
 
         order_of_search=self.get_order_of_search()
         board_configuration_number = convert_initial_board_configuration_to_a_unique_number()
+        self.frontier_dict = {board_configuration_number:{'parent':None,'direction':None,'search_depth':0}}
         self.put_neighbor_into_frontier(board_configuration_number)
-        frontier_dict = {board_configuration_number:{'parent':None,'direction':None,'search_depth':0}}
         explored_set = set()
         eight_puzzle_result = EightPuzzleResult()
         tree_operations = TreeOperations() 
-        max_search_depth = 0
+        self.max_search_depth = 0
         while(frontier_queue_is_not_empty()):
             board_state = self.get_the_next_board_state_from_the_frontier()
             explored_set.add(board_state)
 #             print board_state
             if(self.goal_test(board_state)):
-                eight_puzzle_result.get_path_to_solution(frontier_dict,board_state)   
-                eight_puzzle_result.max_search_depth = max_search_depth
+                eight_puzzle_result.get_path_to_solution(self.frontier_dict,board_state)   
+                eight_puzzle_result.max_search_depth = self.max_search_depth
 
                 
                 return eight_puzzle_result
@@ -186,11 +197,7 @@ class SearchAlgorithm:
             for direction in order_of_search:
                 if direction in neighbors:
                     neighbor = neighbors[direction]
-                    if neighbor not in frontier_dict and neighbor not in explored_set:
-                        self.put_neighbor_into_frontier(neighbor)
-                        frontier_dict[neighbor]={'parent':board_state,'direction':direction,'search_depth':frontier_dict[board_state]['search_depth'] + 1}
-                        if(frontier_dict[neighbor]['search_depth'] > max_search_depth):
-                            max_search_depth = frontier_dict[neighbor]['search_depth']
+                    self.determine_if_to_insert_neighbor_into_frontier(explored_set, board_state, direction, neighbor)
         return None
 
 class BFS(SearchAlgorithm):    
@@ -210,14 +217,60 @@ class DFS(SearchAlgorithm):
     def get_order_of_search(self):
         return "Right","Left","Down","Up"
 
-# class AStar(SearchAlgorithm):
-# 
-#     def __init__(self):
-#         self.frontier = []
-# 
-#     def get_the_next_board_state_from_the_frontier(self):
-#         return None
-# 
-#     def put_neighbor_into_frontier(self, neighbor):
-#         return heappush(self.frontier.append,(neighbor,0))
-#     
+
+class AST(SearchAlgorithm):
+    
+    cost_from_here_to_goal_var = 0
+    priority_and_board_state_dict = {}
+    
+    def __init__(self):
+        self.frontier = []
+
+    def get_order_of_search(self):
+        return "Up", "Down", "Left","Right"
+ 
+    def get_the_next_board_state_from_the_frontier(self):
+        while self.frontier:
+            board_state = heappop(self.frontier)[1]
+            if board_state is not 'removed':
+                del self.priority_and_board_state_dict[board_state]
+                return board_state
+        raise KeyError('The heap is empty')
+
+    def cost_from_here_to_goal(self,board_state):
+        tuple_of_board_state = (str(board_state))
+        cost_to_goal = 0
+        for board_position, board_tile_value in enumerate(tuple_of_board_state[1:10]):
+            goal_row = int(board_tile_value)/3
+            curr_row = board_position/3
+            cost_to_goal += abs((int(board_tile_value) - goal_row*3) - (board_position - curr_row*3)) + abs(goal_row - curr_row)
+        return cost_to_goal
+            
+    def remove_priority_and_board_state_tuple_from_heap(self, neighbor):
+        priority_and_board_state_tuple = self.priority_and_board_state_dict[neighbor]
+        priority_and_board_state_tuple[-1] = 'removed'
+    
+    def put_neighbor_into_frontier(self, neighbor):
+        if neighbor in self.priority_and_board_state_dict:
+            self.remove_priority_and_board_state_tuple_from_heap(neighbor)
+        cost_to_this_point = self.frontier_dict[neighbor]['search_depth']
+        cost = cost_to_this_point + self.cost_from_here_to_goal_var
+        priority_and_board_state_tuple = (cost,neighbor)
+        self.priority_and_board_state_dict[neighbor] = priority_and_board_state_tuple
+        heappush(self.frontier,priority_and_board_state_tuple)
+        
+    
+    def determine_if_to_insert_neighbor_into_frontier(self, explored_set, board_state, direction, neighbor):
+        self.cost_from_here_to_goal_var = self.cost_from_here_to_goal(neighbor)
+        if neighbor not in self.frontier_dict and neighbor not in explored_set:
+            self.frontier_dict[neighbor] = {'parent':board_state, 'direction':direction, 'search_depth':self.frontier_dict[board_state]['search_depth'] + 1}
+            self.put_neighbor_into_frontier(neighbor)
+            if (self.frontier_dict[neighbor]['search_depth'] > self.max_search_depth):
+                self.max_search_depth = self.frontier_dict[neighbor]['search_depth']
+        elif neighbor in zip(*self.frontier)[1]:
+            cost_to_this_point = self.frontier_dict[neighbor]['search_depth']
+            cost = cost_to_this_point + self.cost_from_here_to_goal_var
+            cost_of_board_state_in_frontier = self.priority_and_board_state_dict[neighbor][0]
+            if cost <= cost_of_board_state_in_frontier:
+                self.frontier_dict[neighbor] = {'parent':board_state, 'direction':direction, 'search_depth':self.frontier_dict[board_state]['search_depth'] + 1}
+                self.put_neighbor_into_frontier(neighbor)
