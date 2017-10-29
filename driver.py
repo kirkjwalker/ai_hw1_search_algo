@@ -1,6 +1,6 @@
 from collections import deque
 import time
-from _heapq import heappush, heappop
+from _heapq import heappush, heappop, heapify
 
 class EightPuzzleResult:
     path_to_solution = []
@@ -188,9 +188,7 @@ class SearchAlgorithm:
 #             print board_state
             if(self.goal_test(board_state)):
                 eight_puzzle_result.get_path_to_solution(self.frontier_dict,board_state)   
-                eight_puzzle_result.max_search_depth = self.max_search_depth
-
-                
+                eight_puzzle_result.max_search_depth = self.max_search_depth             
                 return eight_puzzle_result
             eight_puzzle_result.nodes_expanded += 1
             neighbors = tree_operations.get_all_neighbors_for(board_state)
@@ -225,6 +223,8 @@ class AST(SearchAlgorithm):
     
     def __init__(self):
         self.frontier = []
+        self.priority_and_board_state_dict = {}
+        self.cost_from_here_to_goal_var = 0
 
     def get_order_of_search(self):
         return "Up", "Down", "Left","Right"
@@ -247,9 +247,11 @@ class AST(SearchAlgorithm):
         return cost_to_goal
             
     def remove_priority_and_board_state_tuple_from_heap(self, neighbor):
-        priority_and_board_state_tuple = self.priority_and_board_state_dict[neighbor]
-        priority_and_board_state_tuple[-1] = 'removed'
-    
+        priority_and_board_state_tuple = self.priority_and_board_state_dict[neighbor] 
+        self.frontier.remove(priority_and_board_state_tuple)
+        self.priority_and_board_state_dict[neighbor] = (priority_and_board_state_tuple[0],"removed")
+        heapify(self.frontier)
+        
     def put_neighbor_into_frontier(self, neighbor):
         if neighbor in self.priority_and_board_state_dict:
             self.remove_priority_and_board_state_tuple_from_heap(neighbor)
@@ -258,8 +260,7 @@ class AST(SearchAlgorithm):
         priority_and_board_state_tuple = (cost,neighbor)
         self.priority_and_board_state_dict[neighbor] = priority_and_board_state_tuple
         heappush(self.frontier,priority_and_board_state_tuple)
-        
-    
+            
     def determine_if_to_insert_neighbor_into_frontier(self, explored_set, board_state, direction, neighbor):
         self.cost_from_here_to_goal_var = self.cost_from_here_to_goal(neighbor)
         if neighbor not in self.frontier_dict and neighbor not in explored_set:
@@ -271,6 +272,6 @@ class AST(SearchAlgorithm):
             cost_to_this_point = self.frontier_dict[neighbor]['search_depth']
             cost = cost_to_this_point + self.cost_from_here_to_goal_var
             cost_of_board_state_in_frontier = self.priority_and_board_state_dict[neighbor][0]
-            if cost <= cost_of_board_state_in_frontier:
+            if cost < cost_of_board_state_in_frontier:
                 self.frontier_dict[neighbor] = {'parent':board_state, 'direction':direction, 'search_depth':self.frontier_dict[board_state]['search_depth'] + 1}
                 self.put_neighbor_into_frontier(neighbor)
